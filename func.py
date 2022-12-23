@@ -4,12 +4,23 @@ import numpy as np
 import multiprocessing
 import roi
 import matplotlib.pyplot as plt
+import math
+import glob
+
+def remove_empty_tiles(tiles):
+	"""Removes empty tiles from a list of tiles.
+	"""
+	new_tiles = []
+	for tile in tiles:
+		if len(tile) > 0:
+			new_tiles.append(tile)
+	return new_tiles
 
 def findInlier(img):
 	# Initiate SIFT detector
 
-	img1 = img[0]		# Image in question
-	img2 = img[1][0] 	# Gold standard image
+	img1 = img[0]		# Tile found as ROI, image in question (array)
+	img2 = img[1][0] 	# Gold standard image (array)
 	sift = cv.SIFT_create()
 
 	kp1, des1 = sift.detectAndCompute(img1, None)
@@ -51,16 +62,18 @@ def NN(tiles, images):
 	#store the max inliers for each tile
 	maxInliers = []
 	for tile in tiles:
-
+		#Find the best match for each tile
 		pairs = [(tile.copy(), img2) for img2 in images]
 		if False:
 			p = multiprocessing.Pool(processes = 4)
 			inliers = p.map(findInlier, pairs)
 		else:
 			inliers = [findInlier(pair) for pair in pairs]
-
 		theMax = max(inliers)
+		maxInliers.append(theMax)
+	return(maxInliers)
 
+def temp():
 		#Show the tile to identify
 		# cv.imshow("Tile to identify", tile)
 		plt.figure(figsize=(1,1))
@@ -77,10 +90,6 @@ def NN(tiles, images):
 		plt.imshow(guess)
 		#cv.waitKey(0)
 
-		maxInliers.append(theMax)
-	return(maxInliers)
-
-
 #Converts a list of image names into a list of
 #tuple's where the first value of the tuple is 
 #the OpenCV image and the second value of the 
@@ -88,71 +97,159 @@ def NN(tiles, images):
 def getImage(files):
 	return [(cv.resize(cv.imread(f,0),(0,0), fx = 0.2, fy = 0.2), f) for f in files]
 
-def main():
-	#Get images
-
-	#get list of images in golden data set
-	# Obtains the array of images to the golden standards
-	testData = glob.glob(DATAPATH)
-	images = getImage(testData)
-	
-	#REMOVE ONCE HENRY'S DONE
-	# tiles contains an array of images
-	tiles = roi.findRoi(FILE)
-	inliers = NN(tiles, images)
-
-# if __name__ == "__main__":
-# 	main()
 
 
 # Plot a list of image arrays in a grid
 def plot_arrays(images, cols=4):
-    rows = round(len(images) / cols)
-
-    fig = plt.figure(figsize=(8, 8), constrained_layout=True)
-    outer_grid = fig.add_gridspec(rows, cols, wspace=0, hspace=0)
-
-    axs = outer_grid.subplots()  # Create all subplots for the inner grid.
-    for (a, b), ax in np.ndenumerate(axs):
-        n = a*cols + b
-        if n<len(images):
-            ax.imshow(images[n])
-        ax.set(xticks=[], yticks=[])
-    plt.show()
-
+	rows = math.ceil(len(images) / cols)
+	fig = plt.figure(figsize=(8, 8), constrained_layout=True)
+	outer_grid = fig.add_gridspec(rows, cols, wspace=0, hspace=0)
+	axs = outer_grid.subplots()  # Create all subplots for the inner grid.
+	for (a, b), ax in np.ndenumerate(axs):
+		n = a*cols + b
+		if n<len(images):
+			ax.imshow(images[n])
+		ax.set(xticks=[], yticks=[])
+	plt.show()
 
 # Plot a list of image arrays
-def plotImages(images, titles=None, cols=1, figsize=None, cmap=None, norm=None, interpolation=None, fontsize=None):
-    """Plot a list of images.
-    Parameters
-    ----------
-    images: List of np.arrays compatible with plt.imshow.
-    titles: List of titles corresponding to each image. Must have
-            the same length as titles.
-    cols (Default = 1): Number of columns in figure (number of rows is
-                        set to np.ceil(n_images/float(cols))).
-    cmap: Colormap for the images. Only required if images have a
-          single color channel.
-    norm: Normalize instance for the images. Only required if images
-          have a single color channel.
-    interpolation: Interpolation type for the images. Only required
-                   if images have a single color channel.
-    """
-    assert((titles is None) or (len(images) == len(titles)))
-    n_images = len(images)
-    if titles is None: titles = ['Image (%d)' % i for i in range(1,n_images + 1)]
-    if figsize is None: figsize = (1,1)
-    fig = plt.figure(figsize=figsize)
-    if fontsize is None:
-        fontsize = min(fig.get_size_inches()) * n_images
-    plt.rcParams.update({'font.size': fontsize})
-    for n, (image, title) in enumerate(zip(images, titles)):
-        a = fig.add_subplot(round(n_images/cols), cols,  n + 1)
-        if image.ndim == 2:
-            plt.gray()
-        plt.imshow(image, cmap=cmap, norm=norm, interpolation=interpolation)
-        a.set_title(title)
-    fig.set_size_inches(np.array(fig.get_size_inches()) * n_images)
+def plotImages(images, titles=None, cols=1, figsize=None, cmap=None, norm=None, interpolation=None, fontsize=10):
+	"""Plot a list of images.
+	Parameters
+	----------
+	images: List of np.arrays compatible with plt.imshow.
+	titles: List of titles corresponding to each image. Must have
+			the same length as titles.
+	cols (Default = 1): Number of columns in figure (number of rows is
+						set to np.ceil(n_images/float(cols))).
+	cmap: Colormap for the images. Only required if images have a
+		  single color channel.
+	norm: Normalize instance for the images. Only required if images
+		  have a single color channel.
+	interpolation: Interpolation type for the images. Only required
+				   if images have a single color channel.
+	"""
+	assert((titles is None) or (len(images) == len(titles)))
+	n_images = len(images)
+	if titles is None: titles = ['Image (%d)' % i for i in range(1,n_images + 1)]
+	if figsize is None: figsize = (6,6)
+	fig = plt.figure(figsize=figsize, constrained_layout=True)
+	# fig.set_size_inches(np.array(fig.get_size_inches()) * n_images)
+	if fontsize is None:
+		fontsize = min(fig.get_size_inches()) * n_images
+	# plt.rcParams.update({'font.size': fontsize})
+	for n, (image, title) in enumerate(zip(images, titles)):
+		ax = fig.add_subplot(math.ceil(n_images/cols), cols,  n + 1)
+		if len(image) == 0:
+			ax.axis('off')
+		else:
+			ax.imshow(image, cmap=cmap, norm=norm, interpolation=interpolation)
+		ax.set_title(title, fontsize=fontsize)
+		ax.set(xticks=[], yticks=[])
+	# plt.show()
+
+def plot_matches(tiles, inliers, ncol=4, figsize=(8,8), fontsize=10):
+    assert len(inliers) == len(tiles)
+    n = len(inliers)
+    nrow = math.ceil(n/ncol)
+    fig = plt.figure(figsize=figsize, constrained_layout=False)
+    outer_grid = fig.add_gridspec(nrow, ncol, wspace=0, hspace=0)
+    for a in range(nrow):
+        for b in range(ncol):
+            # gridspec inside gridspec
+            inner_grid = outer_grid[a, b].subgridspec(1, 2, wspace=0, hspace=0)
+            axs = inner_grid.subplots()  # Create all subplots for the inner grid.
+            i = a*ncol + b
+            if i < n:
+                ax = axs[0]
+                ax.imshow(tiles[i])
+                ax.set(xticks=[], yticks=[])
+                ax.set_title(f"Tile {i+1}", fontsize=fontsize)
+                ax = axs[1]
+                ax.imshow(cv.imread(inliers[i][1]))
+                ax.set(xticks=[], yticks=[])
+                ax.set_title(f"Score {inliers[i][0]}", fontsize=fontsize)
+            else:
+                ax = axs[0]
+                ax.axis('off')
+                ax = axs[1]
+                ax.axis('off')
+    # show only the outside spines
+    for ax in fig.get_axes():
+        ss = ax.get_subplotspec()
+        ax.spines.top.set_visible(ss.is_first_row())
+        ax.spines.bottom.set_visible(ss.is_last_row())
+        ax.spines.left.set_visible(ss.is_first_col())
+        ax.spines.right.set_visible(ss.is_last_col())
     plt.show()
 
+def plot_image_paris_side_by_side(images1,images2,titles1=None,titles2=None,figsize=(8,8), fontsize=10):
+	assert len(images1) == len(images2)
+	n_images = len(images1)
+	if titles1 is None: titles1 = ['Image a(%d)' % i for i in range(1,n_images + 1)]
+	if titles2 is None: titles2 = ['Image b(%d)' % i for i in range(1,n_images + 1)]
+	n = len(images1)
+	fig = plt.figure(figsize=figsize, constrained_layout=False)
+	outer_grid = fig.add_gridspec(1, n, wspace=0, hspace=0)
+	for b in range(n):
+		# gridspec inside gridspec
+		inner_grid = outer_grid[0, b].subgridspec(1, 2, wspace=0, hspace=0)
+		axs = inner_grid.subplots()  # Create all subplots for the inner grid.
+		ax = axs[0]
+		ax.imshow(images1[b])
+		ax.set_title(titles1[b], fontsize=fontsize)
+		ax.set(xticks=[], yticks=[])
+		ax = axs[1]
+		ax.imshow(images2[b])
+		ax.set_title(titles2[b], fontsize=fontsize)
+		ax.set(xticks=[], yticks=[])
+	plt.show()
 
+def plot_images_up_and_down(images1,images2,titles1=None,titles2=None,figsize=(8,8), fontsize=10):
+	assert len(images1) == len(images2)
+	n_images = len(images1)
+	if titles1 is None: titles1 = ['Image a(%d)' % i for i in range(1,n_images + 1)]
+	if titles2 is None: titles2 = ['Image b(%d)' % i for i in range(1,n_images + 1)]
+	n = len(images1)
+	fig = plt.figure(figsize=figsize, constrained_layout=False)
+	outer_grid = fig.add_gridspec(1, n, wspace=0, hspace=0)
+	for a in range(n):
+		# gridspec inside gridspec
+		inner_grid = outer_grid[0, a].subgridspec(2, 1, wspace=0, hspace=0)
+		axs = inner_grid.subplots()  # Create all subplots for the inner grid.
+		ax = axs[0]
+		ax.imshow(images1[a])
+		ax.set_title(titles1[a], fontsize=fontsize)
+		ax.set(xticks=[], yticks=[])
+		ax = axs[1]
+		ax.imshow(images2[a])
+		ax.set_title(titles2[a], fontsize=fontsize)
+		ax.set(xticks=[], yticks=[])
+	plt.show()
+
+def plotMatches(tiles, inliers,figsize=(8,8)):
+	assert len(inliers) == len(tiles)
+	images1 = tiles
+	images2 = [ cv.imread(i[1]) for i in inliers]
+	titles1 = [f"Tile {i+1}" for i in range(len(tiles))]
+	titles2 = [f"Score {i[0]}" for i in inliers]
+	plot_images_up_and_down(images1,images2,titles1=titles1,titles2=titles2,figsize=figsize, fontsize=10)
+
+def main(DATAPATH, FILE):
+	#Get images
+	plt.imshow(plt.imread(FILE))
+	# tiles contains an array of images
+	tiles = roi.findRoi(FILE)
+	tiles = remove_empty_tiles(tiles)
+	plotImages(tiles,cols=10,figsize=(10,3),fontsize=10)
+
+	#get list of images in golden standard data set
+	# Obtains the array of images to the golden standards
+	testData = glob.glob(DATAPATH)
+	images = getImage(testData)
+	inliers = NN(tiles, images)
+	#plot_matches(tiles, inliers, ncol=5, figsize=(8,8))
+	plotMatches(tiles, inliers, figsize=(20,5))
+
+	res= [ (i+1, inliers[i]) for i in range(len(inliers)) ] 
+	print(res)
