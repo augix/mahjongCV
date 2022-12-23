@@ -5,7 +5,7 @@ numpy
 #scipy==0.13.3
 scipy
 #wsgiref==0.1.2
-wsgiref
+#wsgiref
 # colorama==0.3.1
 colorama
 #opencv==3.1

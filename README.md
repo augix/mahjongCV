@@ -17,3 +17,9 @@ This is largly untested, but I put all of the dependences into requirements.txt.
 `sudo pip install -r requirements.txt`
 
 You might run into other installation errors.
+
+Notes
+======================
+# if found error libGL.so.1: cannot open shared object file when importing cv2, run the following:
+sudo apt-get update
+sudo apt-get install libglu1
